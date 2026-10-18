@@ -1,0 +1,29 @@
+{
+  "name": "pau",
+  "owner": {
+    "name": "Cinto Casals",
+    "url": "https://github.com/cintocasals"
+  },
+  "metadata": {
+    "description": "Pau - a project manager that delivers an approved plan.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "pau",
+      "source": "./",
+      "description": "Takes an approved plan and runs it to the result. One state schema, one writer, a reviewer who did not do the work, and no clock-driven loops.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Cinto Casals"
+      },
+      "license": "MIT",
+      "keywords": [
+        "project-management",
+        "execution",
+        "agents",
+        "lean"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# Pau project state belongs to the project that uses the plugin, not to the plugin itself.
+.pau/.staging/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Eval output
+results/

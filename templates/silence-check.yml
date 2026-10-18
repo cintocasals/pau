@@ -1,0 +1,127 @@
+# Silence detector - copy this into YOUR OWN repository at .github/workflows/silence-check.yml
+#
+# Why it lives outside the plugin: when an account hits its usage limit, scheduled runs are refused
+# and nothing announces it. A watchdog that runs in the same account as the thing it watches stops
+# at the same moment and tells you nothing. This one runs somewhere else.
+#
+# What it does: looks at .pau/state.json in your project, works out how long it has been since REAL
+# progress (a task moved, a gate passed, a decision was answered, a new deliverable - not "a run
+# happened"), and opens or updates one GitHub issue when that passes the threshold.
+#
+# Set up: commit your project's .pau/ directory to this repository, adjust the path and the
+# threshold, and that is all. No server, no secret beyond the one GitHub gives the workflow.
+
+name: Pau silence check
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # hourly, off the hour on purpose
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      PAU_PROJECT: "."          # directory holding .pau/
+      STAGNATION_HOURS: "4"     # calibrate this; it is a starting figure, not a validated one
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Measure time since real progress
+        id: measure
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, sys
+          from datetime import datetime, timezone
+
+          project = os.environ.get("PAU_PROJECT", ".")
+          limit = float(os.environ.get("STAGNATION_HOURS", "4"))
+          path = os.path.join(project, ".pau", "state.json")
+
+          if not os.path.exists(path):
+              print("verdict=missing")
+              print(f"detail=No {path} in this repository.")
+              sys.exit(0)
+
+          state = json.load(open(path, encoding="utf-8"))
+          raw = state.get("last_progress_at")
+          if not raw:
+              print("verdict=missing")
+              print("detail=state.json records no last_progress_at yet.")
+              sys.exit(0)
+
+          moment = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+          if moment.tzinfo is None:
+              moment = moment.replace(tzinfo=timezone.utc)
+          hours = (datetime.now(timezone.utc) - moment).total_seconds() / 3600
+
+          if state.get("stop_requested"):
+              print("verdict=stopped")
+              print(f"detail=The owner stopped this project ({hours:.1f} h ago at the last progress).")
+          elif hours >= limit:
+              print("verdict=silent")
+              print(
+                  f"detail={hours:.1f} h since real progress "
+                  f"({state.get('last_progress_what', 'unknown')}), limit {limit} h. "
+                  f"Status {state.get('status')}. Open decisions {state.get('open_decisions', '?')}. "
+                  f"Resume point: {state.get('resume_point', 'none recorded')}"
+              )
+          else:
+              print("verdict=ok")
+              print(f"detail={hours:.1f} h since real progress, under the {limit} h limit.")
+          PY
+
+      - name: Open or update the issue
+        if: steps.measure.outputs.verdict == 'silent'
+        uses: actions/github-script@v7
+        env:
+          DETAIL: ${{ steps.measure.outputs.detail }}
+        with:
+          script: |
+            const title = "Pau: no real progress";
+            const body = `${process.env.DETAIL}\n\n` +
+              `This is the silence detector. It watches progress, not runs: a project whose runs are ` +
+              `being refused looks identical to one that is simply quiet, from the inside.\n\n` +
+              `Open \`BOARD.md\` for the full picture.`;
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: "pau-silence"
+            });
+            if (open.data.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: open.data[0].number, body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ["pau-silence"]
+              });
+            }
+
+      - name: Close the issue when progress returns
+        if: steps.measure.outputs.verdict == 'ok'
+        uses: actions/github-script@v7
+        env:
+          DETAIL: ${{ steps.measure.outputs.detail }}
+        with:
+          script: |
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: "pau-silence"
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Progress is back. ${process.env.DETAIL}`
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, state: "closed"
+              });
+            }
