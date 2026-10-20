@@ -16,3 +16,7 @@ venv/
 
 # Eval output
 results/
+
+# The packaged plugin goes to the GitHub release, not into the repo:
+# an install should not carry a copy of itself.
+dist/

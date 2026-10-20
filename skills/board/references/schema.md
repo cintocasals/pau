@@ -23,6 +23,9 @@ Closed: a field that is not here is rejected. Enforced by `scripts/validate_stat
 | `tasks_in_flight` | int | at most 3 |
 | `budget_runs_total` | int | execution budget |
 | `budget_runs_used` | int | |
+| `budget_money_total` | number | money budget. Spending is red action number one, so it belongs in state, not only in a task's free text |
+| `budget_money_spent` | number | |
+| `budget_currency` | string | e.g. `EUR` |
 | `usage_pct` | number | stop at 80 |
 | `stop_requested` | bool | the owner's stop |
 | `stopped_by`, `stopped_at` | string, ISO | |
@@ -77,12 +80,17 @@ Optional: `due`, `answered_at`, `answer`, `blocks_gate`, `reversible`, `default_
 | `kind` | enum | **required**. `cycle` \| `progress` \| `decision` \| `gate` \| `stop` \| `quality` \| `norm` |
 | `text` | string | **required**, one line |
 | `changed` | bool | **required**. Did this run change state? |
-| `run_id` | string | |
+| `run_id` | string | **required on a `cycle` entry.** It is what makes a run countable when one run writes several entries |
 | `chosen`, `rejected` | task ids | the task picked, and the first one passed over |
 
 `changed` is the field that makes "how many cycles did nothing?" a number instead of a feeling. Count it
 over runs, never over log entries: a loop that writes only when something happens will look perfect and
 tell you nothing.
+
+A run is one `cycle` entry, found by its `run_id`. **A run counts as having changed something if any of
+its entries carries `changed: true`**, not only the cycle entry itself, because one run often writes a
+cycle line plus a progress line plus a decision. `render_board.py` counts it this way and the validator
+requires `run_id` on every cycle entry so that it can.
 
 `chosen` and `rejected` make the priority order checkable: the task worked on should be the first on the
 ordered list every time.

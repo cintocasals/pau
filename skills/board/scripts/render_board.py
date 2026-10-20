@@ -93,15 +93,48 @@ def render(project, stagnation_hours):
 
     next_gate = gates.get(state.get("next_gate") or "", {})
 
-    quiet = sum(1 for e in log if e.get("changed") is False)
-    quiet_pct = (quiet / len(log) * 100.0) if log else 0.0
+    # Counted over RUNS, never over log entries. A loop that writes only when
+    # something happens looks perfect from the inside and tells you nothing.
+    # One cycle entry marks one run; any entry of that run with changed=true
+    # makes the whole run count as one that changed something.
+    run_keys, seen = [], set()
+    for i, entry in enumerate(log):
+        if entry.get("kind") == "cycle":
+            key = entry.get("run_id") or f"__cycle_{i}"
+            if key not in seen:
+                seen.add(key)
+                run_keys.append(key)
+    changed_runs = set()
+    for i, entry in enumerate(log):
+        if entry.get("changed") is not True:
+            continue
+        key = entry.get("run_id")
+        if key in seen:
+            changed_runs.add(key)
+        elif entry.get("kind") == "cycle":
+            changed_runs.add(f"__cycle_{i}")
+    total_runs = len(run_keys)
+    quiet = total_runs - sum(1 for k in run_keys if k in changed_runs)
+    quiet_pct = (quiet / total_runs * 100.0) if total_runs else 0.0
 
+    parts = []
     used = state.get("budget_runs_used")
     total = state.get("budget_runs_total")
-    budget = f"{used} of {total} runs" if used is not None and total else "no budget set"
+    if used is not None and total:
+        parts.append(f"{used} of {total} runs")
+    spent = state.get("budget_money_spent")
+    money = state.get("budget_money_total")
+    cur = state.get("budget_currency") or ""
+    if money:
+        shown = 0 if spent is None else spent
+        line = f"{shown} of {money} {cur}".strip()
+        if money and shown >= money * 0.8:
+            line += " **stop at 80**"
+        parts.append(line)
     usage = state.get("usage_pct")
     if usage is not None:
-        budget += f" - usage {usage} %" + (" **stop at 80**" if usage >= 80 else "")
+        parts.append(f"usage {usage} %" + (" **stop at 80**" if usage >= 80 else ""))
+    budget = " - ".join(parts) if parts else "no budget set"
 
     lines = []
     add = lines.append
@@ -125,7 +158,10 @@ def render(project, stagnation_hours):
         f"{len(done)} done, {len(tasks)} total |")
     add(f"| **Decisions** | {len(open_decisions)} open, {len(queued)} queued |")
     add(f"| **Budget** | {budget} |")
-    add(f"| **Cycles with no state change** | {quiet} of {len(log)} ({quiet_pct:.0f} %) |")
+    if total_runs:
+        add(f"| **Cycles with no state change** | {quiet} of {total_runs} runs ({quiet_pct:.0f} %) |")
+    else:
+        add("| **Cycles with no state change** | no cycles run yet |")
     if state.get("stop_requested"):
         add(f"| **STOPPED** | by {state.get('stopped_by', '?')} at {state.get('stopped_at', '?')} |")
     add("")

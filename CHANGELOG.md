@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.1 - 2026-10-20
+
+Two defects found by running the plugin against a real plan, before it was made public.
+
+- **The board counted quiet cycles over log entries instead of over runs**, which is exactly what
+  `skills/board/references/schema.md` says never to do. A loop that writes only when something happens
+  looked better than it was: on the test run the board said 4 of 6 entries where the truth was 3 of 4 runs.
+  Fixed: a run is one `cycle` entry found by its `run_id`, and a run counts as having changed something if
+  any of its entries carries `changed: true`. The validator now requires `run_id` on every cycle entry.
+- **The state had no money budget.** With a plan whose first red action is spending, `BOARD.md` said "no
+  budget set". Added `budget_money_total`, `budget_money_spent` and `budget_currency`, rendered on the
+  board with the same stop-at-80 mark as usage.
+
+Also: `dist/` removed from the repository. The packaged plugin is attached to the release instead, so an
+install no longer carries a copy of itself.
+
 ## 0.1.0 - 2026-10-18
 
 First build. Not yet released.

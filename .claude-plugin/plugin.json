@@ -1,7 +1,7 @@
 {
   "name": "pau",
   "description": "A project manager that takes an approved plan and runs it to the result. Pau turns the plan into one state schema, drives a whole unit end to end before it schedules anything, stops at the first defect, and only asks you when price, date, scope or reputation changes - always with a recommendation attached.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Cinto Casals",
     "url": "https://github.com/cintocasals"

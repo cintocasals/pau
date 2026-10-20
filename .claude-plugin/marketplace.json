@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Pau - a project manager that delivers an approved plan.",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "plugins": [
     {
       "name": "pau",
       "source": "./",
       "description": "Takes an approved plan and runs it to the result. One state schema, one writer, a reviewer who did not do the work, and no clock-driven loops.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Cinto Casals"
       },

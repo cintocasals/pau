@@ -45,6 +45,7 @@ STATE_FIELDS = {
     "lease_holder", "lease_until",
     "open_decisions", "queued_decisions", "tasks_in_flight",
     "budget_runs_total", "budget_runs_used", "usage_pct",
+    "budget_money_total", "budget_money_spent", "budget_currency",
     "stop_requested", "stopped_by", "stopped_at", "resumed_by", "resumed_at",
     "updated_at", "updated_by",
 }
@@ -240,6 +241,11 @@ def validate(store, session=None, previous=None):
             continue
         if entry.get("kind") not in LOG_KIND:
             errors.append(f"{LOG}:{n}.kind must be one of {sorted(LOG_KIND)}")
+        if entry.get("kind") == "cycle" and not str(entry.get("run_id", "")).strip():
+            errors.append(
+                f"{LOG}:{n}: a cycle entry needs a run_id. "
+                "Cycles without a state change are counted over runs, not over entries"
+            )
         if not isinstance(entry.get("changed"), bool):
             errors.append(
                 f"{LOG}:{n}.changed must be true or false. "
